@@ -6,11 +6,11 @@ import { chromium } from "playwright";
 
 import { GoogleGenAI } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: "AIzaSyCwP99e2MwhY0PiAY_tTa5PT7OzB91QCfw" });
+dotenv.config();
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const serv = "Milton India";
 
-dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
