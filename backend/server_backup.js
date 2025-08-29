@@ -1,11 +1,52 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
+
 import { chromium } from "playwright";
+
 import { GoogleGenAI } from "@google/genai";
 
-dotenv.config();
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+dotenv.config(}
+
+// API Routes
+app.post('/api/analyze', async (req, res) => {
+  try {
+    const { serviceName, policyText } = req.body;
+    
+    if (!serviceName || !policyText) {
+      return res.status(400).json({ 
+        message: 'Service name and policy text are required' 
+      });
+    }
+
+    const result = await analyzePolicyWithGemini(serviceName, policyText);
+    res.json(result);
+  } catch (error) {
+    console.error('Analysis error:', error);
+    res.status(500).json({ 
+      message: error.message || 'Failed to analyze policy' 
+    });
+  }
+});
+
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'OK', message: 'Server is running' });
+});
+
+app.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`)
+
+  // Uncomment the following lines if you want to test the scraping functionality
+  // const privacyPageText = await search();
+  // if(privacyPageText){
+  //   const policyText = await extractPrivacyPolicy(privacyPageText);
+  //   console.log("Extracted policy:", policyText);
+  // } else {
+  //   console.log("No privacy page text was found.");
+  // }
+})w GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
+const serv = "Prestige Cookers";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -30,12 +71,11 @@ const parseGeminiResponse = (responseText) => {
 
   try {
     const parsed = JSON.parse(jsonStr);
-    // Basic validation of the parsed structure
     if (
       typeof parsed.ranking === 'string' &&
       typeof parsed.summary === 'string' &&
       Array.isArray(parsed.worryingClauses) &&
-      Array.isArray(parsed.positiveAspects) 
+      Array.isArray(parsed.positiveAspects)
     ) {
       return parsed;
     } else {
@@ -48,32 +88,39 @@ const parseGeminiResponse = (responseText) => {
   }
 };
 
-const analysisSchema = {
-    type: "OBJECT",
-    properties: {
-        ranking: {
-            type: "STRING",
-            description: "A short phrase ranking the policy (e.g., 'Good', 'Fair', 'Poor', 'Excellent - User-Focused')."
-        },
-        summary: {
-            type: "STRING",
-            description: "A brief, easy-to-understand summary of the key aspects of the policy (2-4 sentences)."
-        },
-        worryingClauses: {
-            type: "ARRAY",
-            description: "An array of strings, each describing a specific clause that might be unfavorable or concerning from a privacy perspective. Empty array if none.",
-            items: { type: "STRING" }
-        },
-        positiveAspects: {
-            type: "ARRAY",
-            description: "An array of strings, each describing a specific clause that is positive or user-friendly. Empty array if none.",
-            items: { type: "STRING" }
-        },
+const analysisSchema = { 
+  type: "OBJECT",
+  properties: {
+    ranking: {
+      type: "STRING",
+      description: "A short phrase ranking the policy (e.g., 'Good', 'Fair', 'Poor', 'Excellent - User-Focused')."
     },
+    summary: {
+      type: "STRING",
+      description: "A brief, easy-to-understand summary of the key aspects of the policy (2-4 sentences)."
+    },
+    worryingClauses: {
+      type: "ARRAY",
+      description: "An array of strings, each describing a specific clause that might be unfavorable or concerning from a privacy perspective. Empty array if none.",
+      items: { type: "STRING" }
+    },
+    positiveAspects: {
+      type: "ARRAY",
+      description: "An array of strings, each describing a specific clause that is positive or user-friendly. Empty array if none.",
+      items: { type: "STRING" }
+    },
+  },
   required: ["ranking", "summary", "worryingClauses", "positiveAspects"]
 };
 
-const analyzePolicyWithGemini = async (serviceName, policyText) => {
+const analyzePolicyWithGemini = async (
+  serviceName,
+  policyText
+) => {
+  // if (!API_KEY) {
+  //   throw new Error("Gemini API Key is not configured. Please set the API_KEY environment variable.");
+  // }
+
   const model = "gemini-2.5-flash";
 
   const systemInstruction = `You are an expert AI legal assistant specializing in analyzing privacy policies and terms of service. Your goal is to provide a clear, concise, and actionable summary for an average user based on the provided text. You must respond with a JSON object that adheres to the provided schema.`;
@@ -114,6 +161,19 @@ const analyzePolicyWithGemini = async (serviceName, policyText) => {
   }
 };
 
+// async function callAi() {
+//   const response = await ai.models.generateContent({
+//     model: "gemini-2.5-flash",
+//     contents: "Describe in 100 words about taj mahal.",
+//     config: {
+//       thinkingConfig: {
+//         thinkingBudget: 0,
+//       }
+//     }
+//   });
+//   console.log(response.text);
+// }
+
 async function extractPrivacyPolicy(privacyPageText) {
   const response = await ai.models.generateContent({
     model: "gemini-2.0-flash",
@@ -127,9 +187,10 @@ async function extractPrivacyPolicy(privacyPageText) {
     }
   });
   return response.text;
+
 }
 
-const search = async (serviceName) => {
+const search = async () => {
   const browser = await chromium.launch({
     headless: false
   });
@@ -137,7 +198,7 @@ const search = async (serviceName) => {
   const page = await context.newPage();
   await page.goto('https://duckduckgo.com/');
   await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).click();
-  await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).fill(serviceName);
+  await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).fill(serv);
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   let href = await page.locator('#r1-0 > div:nth-child(3) > h2 > a').getAttribute('href');
   console.log(href);
@@ -147,6 +208,7 @@ const search = async (serviceName) => {
   }
 
   let href1 = await page.getByRole('link', { name: /privacy/i }).getAttribute('href');
+
 
   if (!(href1.includes("http"))) {
     href1 = href1.slice(1);
@@ -159,39 +221,28 @@ const search = async (serviceName) => {
   }
 
   const allVisibleText = await page.locator('body').innerText();
+  // console.log(allVisibleText);
 
+
+  // ---------------------
   await context.close();
   await browser.close();
 
   return allVisibleText;
 };
 
-// API Routes
-app.post('/api/analyze', async (req, res) => {
-  try {
-    const { serviceName, policyText } = req.body;
-    
-    if (!serviceName || !policyText) {
-      return res.status(400).json({ 
-        message: 'Service name and policy text are required' 
-      });
-    }
 
-    const result = await analyzePolicyWithGemini(serviceName, policyText);
-    res.json(result);
-  } catch (error) {
-    console.error('Analysis error:', error);
-    res.status(500).json({ 
-      message: error.message || 'Failed to analyze policy' 
-    });
+app.listen(PORT, async () => {
+  console.log(`Server running on port ${PORT}`)
+
+
+  const privacyPageText = await search();
+  // callAi();
+  if(privacyPageText){
+    const policyText = await extractPrivacyPolicy(privacyPageText);
+  } else {
+    console.log("No privacy page text was found.");
   }
-});
 
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
-});
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-  console.log('Privacy Policy Analyzer API is ready!');
-});
+  analyzePolicyWithGemini(serv, policyText);
+})

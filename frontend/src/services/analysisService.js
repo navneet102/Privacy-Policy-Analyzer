@@ -1,0 +1,20 @@
+import axiosInstance from '../lib/axios.js';
+
+const API_BASE_URL = 'http://localhost:5000';
+
+export const analyzePolicyWithAPI = async (serviceName, policyText) => {
+  try {
+    const response = await axiosInstance.post(`${API_BASE_URL}/api/analyze`, {
+      serviceName,
+      policyText
+    });
+    
+    return response.data;
+  } catch (error) {
+    console.error("Error calling analysis API:", error);
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw new Error(`Failed to communicate with analysis service: ${error.message || 'Unknown error'}`);
+  }
+};
