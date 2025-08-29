@@ -130,43 +130,162 @@ async function extractPrivacyPolicy(privacyPageText) {
 }
 
 const search = async (serviceName) => {
-  const browser = await chromium.launch({
-    headless: false
-  });
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await page.goto('https://duckduckgo.com/');
-  await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).click();
-  await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).fill(serviceName);
-  await page.getByRole('button', { name: 'Search', exact: true }).click();
-  let href = await page.locator('#r1-0 > div:nth-child(3) > h2 > a').getAttribute('href');
-  console.log(href);
+  let browser, context, page;
+  
+  try {
+    browser = await chromium.launch({
+      headless: false, // Changed to true for production
+      timeout: 30000
+    });
+    
+    context = await browser.newContext({
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    });
+    
+    page = await context.newPage();
+    
+    // Set timeouts
+    page.setDefaultTimeout(15000);
+    page.setDefaultNavigationTimeout(15000);
+    
+    await page.goto('https://duckduckgo.com/', { waitUntil: 'networkidle' });
+    
+    // Search for the service
+    await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).click();
+    await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).fill(serviceName);
+    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    
+    // Wait for search results
+    await page.waitForSelector('#r1-0', { timeout: 10000 });
+    
+    let href = await page.locator('#r1-0 > div:nth-child(3) > h2 > a').getAttribute('href');
+    console.log('Found website:', href);
 
-  if (href) {
-    await page.goto(href);
+    if (!href) {
+      throw new Error('Could not find the official website for this service');
+    }
+
+    // Navigate to the main website
+    await page.goto(href, { waitUntil: 'networkidle' });
+    
+    // Look for privacy policy link
+    let href1;
+    try {
+      href1 = await page.getByRole('link', { name: /privacy/i }).getAttribute('href');
+    } catch (error) {
+      // Try alternative selectors
+      try {
+        href1 = await page.locator('a[href*="privacy"]').first().getAttribute('href');
+      } catch (error2) {
+        throw new Error('Could not find privacy policy link on the website');
+      }
+    }
+
+    if (!href1) {
+      throw new Error('Could not find privacy policy link on the website');
+    }
+
+    // Handle relative URLs
+    if (!href1.includes("http")) {
+      if (href1.startsWith('/')) {
+        href1 = href1.slice(1);
+      }
+      href1 = `${href}${href1}`;
+    }
+
+    console.log('Found privacy policy URL:', href1);
+    
+    // Navigate to privacy policy page
+    await page.goto(href1, { waitUntil: 'networkidle' });
+    
+    // Extract all visible text
+    const allVisibleText = await page.locator('body').innerText();
+    
+    if (!allVisibleText || allVisibleText.length < 100) {
+      throw new Error('Privacy policy page appears to be empty or too short');
+    }
+
+    return allVisibleText;
+    
+  } catch (error) {
+    console.error('Error in search function:', error);
+    throw error;
+  } finally {
+    // Cleanup
+    try {
+      if (context) await context.close();
+      if (browser) await browser.close();
+    } catch (cleanupError) {
+      console.error('Error during cleanup:', cleanupError);
+    }
   }
-
-  let href1 = await page.getByRole('link', { name: /privacy/i }).getAttribute('href');
-
-  if (!(href1.includes("http"))) {
-    href1 = href1.slice(1);
-    href1 = `${href}${href1}`;
-  }
-
-  if (href1) {
-    console.log(href1);
-    await page.goto(href1);
-  }
-
-  const allVisibleText = await page.locator('body').innerText();
-
-  await context.close();
-  await browser.close();
-
-  return allVisibleText;
 };
 
 // API Routes
+app.post('/api/extract-policy', async (req, res) => {
+  try {
+    const { serviceName } = req.body;
+    
+    if (!serviceName || !serviceName.trim()) {
+      return res.status(400).json({ 
+        message: 'Service name is required',
+        success: false
+      });
+    }
+
+    console.log(`Starting policy extraction for: ${serviceName}`);
+    
+    // Step 1: Search and scrape the privacy policy page
+    const privacyPageText = await search(serviceName.trim());
+    
+    if (!privacyPageText) {
+      return res.status(404).json({ 
+        message: 'Could not find privacy policy page for this service',
+        success: false
+      });
+    }
+
+    // Step 2: Extract policy text using AI
+    const policyText = await extractPrivacyPolicy(privacyPageText);
+    
+    if (!policyText || policyText.length < 100) {
+      return res.status(404).json({ 
+        message: 'Could not extract meaningful privacy policy text from the page',
+        success: false
+      });
+    }
+
+    console.log(`Successfully extracted policy for: ${serviceName}`);
+    
+    res.json({ 
+      success: true,
+      policyText: policyText,
+      message: 'Privacy policy extracted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Policy extraction error:', error);
+    
+    let errorMessage = 'Failed to extract privacy policy automatically';
+    
+    if (error.message.includes('Could not find the official website')) {
+      errorMessage = 'Could not find the official website for this service. Please check the service name and try again.';
+    } else if (error.message.includes('Could not find privacy policy link')) {
+      errorMessage = 'Found the website but could not locate a privacy policy link. Please enter the policy text manually.';
+    } else if (error.message.includes('timeout')) {
+      errorMessage = 'The website took too long to load. Please try again or enter the policy text manually.';
+    } else if (error.message.includes('empty or too short')) {
+      errorMessage = 'The privacy policy page appears to be empty. Please enter the policy text manually.';
+    }
+    
+    res.status(500).json({ 
+      message: errorMessage,
+      success: false,
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
 app.post('/api/analyze', async (req, res) => {
   try {
     const { serviceName, policyText } = req.body;

@@ -6,60 +6,19 @@ import { chromium } from "playwright";
 
 import { GoogleGenAI } from "@google/genai";
 
-dotenv.config(}
-
-// API Routes
-app.post('/api/analyze', async (req, res) => {
-  try {
-    const { serviceName, policyText } = req.body;
-    
-    if (!serviceName || !policyText) {
-      return res.status(400).json({ 
-        message: 'Service name and policy text are required' 
-      });
-    }
-
-    const result = await analyzePolicyWithGemini(serviceName, policyText);
-    res.json(result);
-  } catch (error) {
-    console.error('Analysis error:', error);
-    res.status(500).json({ 
-      message: error.message || 'Failed to analyze policy' 
-    });
-  }
-});
-
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
-});
-
-app.listen(PORT, async () => {
-  console.log(`Server running on port ${PORT}`)
-
-  // Uncomment the following lines if you want to test the scraping functionality
-  // const privacyPageText = await search();
-  // if(privacyPageText){
-  //   const policyText = await extractPrivacyPolicy(privacyPageText);
-  //   console.log("Extracted policy:", policyText);
-  // } else {
-  //   console.log("No privacy page text was found.");
-  // }
-})w GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+dotenv.config();
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const serv = "Prestige Cookers";
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 app.use(cors({
   origin: "http://localhost:5173",
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE"],
 }));
-
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 const parseGeminiResponse = (responseText) => { 
   let jsonStr = responseText.trim();
