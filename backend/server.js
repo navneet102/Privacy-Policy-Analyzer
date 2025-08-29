@@ -135,7 +135,7 @@ const search = async (serviceName) => {
   try {
     browser = await chromium.launch({
       headless: false, // Changed to true for production
-      timeout: 30000
+      timeout: 30000,
     });
     
     context = await browser.newContext({
@@ -148,30 +148,42 @@ const search = async (serviceName) => {
     page.setDefaultTimeout(15000);
     page.setDefaultNavigationTimeout(15000);
     
-    await page.goto('https://duckduckgo.com/', { waitUntil: 'networkidle' });
+    await page.goto('https://duckduckgo.com/');
     
     // Search for the service
     await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).click();
-    await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).fill(serviceName);
+    await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).fill(`${serviceName} privacy policy`);
     await page.getByRole('button', { name: 'Search', exact: true }).click();
     
     // Wait for search results
     await page.waitForSelector('#r1-0', { timeout: 10000 });
     
-    let href = await page.locator('#r1-0 > div:nth-child(3) > h2 > a').getAttribute('href');
-    console.log('Found website:', href);
+    // let href = await page.locator('#r1-0 > div:nth-child(3) > h2 > a').getAttribute('href');
+    // console.log('Found website:', href);
 
-    if (!href) {
-      throw new Error('Could not find the official website for this service');
-    }
+    // if (!href) {
+    //   throw new Error('Could not find the official website for this service');
+    // }
 
-    // Navigate to the main website
-    await page.goto(href, { waitUntil: 'networkidle' });
+    // // Navigate to the main website
+    // await page.goto(href);
     
     // Look for privacy policy link
+    // let href1;
+    // try {
+    //   href1 = await page.getByRole('link', { name: /privacy/i }).getAttribute('href');
+    // } catch (error) {
+    //   // Try alternative selectors
+    //   try {
+    //     href1 = await page.locator('a[href*="privacy"]').first().getAttribute('href');
+    //   } catch (error2) {
+    //     throw new Error('Could not find privacy policy link on the website');
+    //   }
+    // }
+
     let href1;
     try {
-      href1 = await page.getByRole('link', { name: /privacy/i }).getAttribute('href');
+      href1 = await page.locator('#r1-0 > div:nth-child(3) > h2 > a').getAttribute('href');
     } catch (error) {
       // Try alternative selectors
       try {
@@ -180,7 +192,6 @@ const search = async (serviceName) => {
         throw new Error('Could not find privacy policy link on the website');
       }
     }
-
     if (!href1) {
       throw new Error('Could not find privacy policy link on the website');
     }
@@ -196,7 +207,7 @@ const search = async (serviceName) => {
     console.log('Found privacy policy URL:', href1);
     
     // Navigate to privacy policy page
-    await page.goto(href1, { waitUntil: 'networkidle' });
+    await page.goto(href1);
     
     // Extract all visible text
     const allVisibleText = await page.locator('body').innerText();
