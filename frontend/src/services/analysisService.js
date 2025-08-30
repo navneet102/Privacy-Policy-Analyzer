@@ -1,6 +1,5 @@
 import axiosInstance from '../lib/axios.js';
 
-const API_BASE_URL = 'https://privacy-policy-analyser.onrender.com'; //Very very bad, but for testing. Please look here for any errors.
 
 export const analyzePolicyWithAPI = async (serviceName, policyText) => {
   try {
