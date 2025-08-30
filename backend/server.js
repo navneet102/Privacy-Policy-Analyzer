@@ -139,7 +139,7 @@ const search = async (serviceName) => {
   
   try {
     browser = await chromium.launch({
-      headless: false, // Changed to true for production
+      headless: true, // Changed to true for production
       timeout: 30000,
     });
     
