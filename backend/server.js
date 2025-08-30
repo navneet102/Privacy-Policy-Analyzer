@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import cors from "cors";
 import { chromium } from "playwright";
 import { GoogleGenAI } from "@google/genai";
+import path from "path";
 
 dotenv.config();
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -10,12 +11,16 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+const __dirname = path.resolve();
+
 // Middleware
-app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE"],
-}));
+if(process.env.NODE_ENV !== "production"){
+  app.use(cors({
+    origin: "http://localhost:5173",
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
+  }));
+}
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -325,3 +330,12 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('Privacy Policy Analyzer API is ready!');
 });
+
+
+if(process.env.NODE_ENV === "production") {
+  app.use(express.static(path.join(__dirname, "/frontend/dist")));
+
+  app.get("*", (req, res) => {
+    res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
+  });
+}
