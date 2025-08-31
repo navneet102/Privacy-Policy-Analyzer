@@ -8,12 +8,13 @@ import path from "path";
 dotenv.config();
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 const __dirname = path.resolve();
 
-// Middleware
+
 if(process.env.NODE_ENV !== "production"){
   app.use(cors({
     origin: "http://localhost:5173",
@@ -21,6 +22,7 @@ if(process.env.NODE_ENV !== "production"){
     methods: ["GET", "POST", "PUT", "DELETE"],
   }));
 }
+
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -132,6 +134,7 @@ async function extractPrivacyPolicy(privacyPageText) {
     }
   });
   return response.text;
+
 }
 
 const search = async (serviceName) => {
@@ -332,6 +335,7 @@ app.listen(PORT, () => {
 });
 
 
+
 if(process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "/frontend/dist")));
 
@@ -339,3 +343,4 @@ if(process.env.NODE_ENV === "production") {
     res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
   });
 }
+
