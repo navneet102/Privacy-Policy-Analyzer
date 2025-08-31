@@ -1,11 +1,12 @@
 import axiosInstance from '../lib/axios.js';
 
-const isProduction = process.env.NODE_ENV === 'production';
-const API_BASE_URL = isProduction ? '' : 'http://localhost:5000';
+// const isProduction = process.env.NODE_ENV === 'production';
+// const API_BASE_URL = isProduction ? '' : 'http://localhost:5000';
 
 export const analyzePolicyWithAPI = async (serviceName, policyText) => {
   try {
-    const response = await axiosInstance.post(`${API_BASE_URL}/api/analyze`, {
+    // const response = await axiosInstance.post(`${API_BASE_URL}/api/analyze`, {
+    const response = await axiosInstance.post(`/api/analyze`, {
       serviceName,
       policyText
     });
@@ -22,7 +23,8 @@ export const analyzePolicyWithAPI = async (serviceName, policyText) => {
 
 export const extractPolicyFromService = async (serviceName) => {
   try {
-    const response = await axiosInstance.post(`${API_BASE_URL}/api/extract-policy`, {
+    // const response = await axiosInstance.post(`${API_BASE_URL}/api/extract-policy`, {
+    const response = await axiosInstance.post(`/api/extract-policy`, {
       serviceName
     });
     
