@@ -76,6 +76,8 @@ const AnalyzerPage = () => {
     try {
       const result = await analyzePolicyWithAPI(serviceName, policyText);
       setAnalysisResult(result);
+      // Hide blocked info when analysis is successful
+      setBlockedInfo(null);
     } catch (e) {
       console.error("Analysis error:", e);
       setError(e.message || 'Failed to analyze policy. Please try again.');
@@ -107,7 +109,7 @@ const AnalyzerPage = () => {
                 id="serviceName"
                 value={serviceName}
                 onChange={(e) => setServiceName(e.target.value)}
-                placeholder="e.g., Amazon, Facebook, Microsoft"
+                placeholder="Facebook, Microsoft, Google"
                 disabled={isLoading || isExtracting}
               />
               
@@ -211,8 +213,8 @@ const AnalyzerPage = () => {
               </div>
             )}
             
-            {/* Blocked website notification */}
-            {blockedInfo && !isLoading && !isExtracting && (
+            {/* Blocked website notification - only show when NOT displaying analysis results */}
+            {blockedInfo && !isLoading && !isExtracting && !analysisResult && (
               <div className="bg-amber-900/30 border border-amber-600 p-6 rounded-lg shadow-md">
                 <div className="flex items-start space-x-3">
                   <div className="flex-shrink-0">
