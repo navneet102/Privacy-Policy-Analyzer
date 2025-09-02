@@ -18,13 +18,10 @@ if (!process.env.BRAVE_API_KEY) {
   throw new Error("BRAVE_API_KEY is not defined in the environment variables.");
 }
 
-
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 const __dirname = path.resolve();
-
 
 if(process.env.NODE_ENV !== "production"){
   app.use(cors({
@@ -33,7 +30,6 @@ if(process.env.NODE_ENV !== "production"){
     methods: ["GET", "POST", "PUT", "DELETE"],
   }));
 }
-
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -145,18 +141,18 @@ async function extractPrivacyPolicy(privacyPageText) {
     }
   });
   return response.text;
-
 }
 
 const search = async (serviceName) => {
   let browser, context, page;
+  let privacyPolicyUrl = null;
   
   try {
     // Step 1: Use Brave Search API to find the privacy policy URL
     console.log(`Searching for privacy policy URL for: ${serviceName}`);
     const params = new URLSearchParams({
       q: `${serviceName} privacy policy`,
-      country: 'IN', // You can change this to a different country code, e.g., 'IN'
+      country: 'IN',
       count: '1',
       ui_lang: 'en-US',
       result_filter: 'web'
@@ -183,7 +179,7 @@ const search = async (serviceName) => {
       throw new Error('Could not find the official website for this service using Brave Search API.');
     }
 
-    const privacyPolicyUrl = searchData.web.results[0].url;
+    privacyPolicyUrl = searchData.web.results[0].url;
     console.log('Found privacy policy URL:', privacyPolicyUrl);
 
     // Step 2: Use Playwright to scrape the content from the found URL
@@ -212,10 +208,21 @@ const search = async (serviceName) => {
       throw new Error('Privacy policy page appears to be empty or too short');
     }
 
-    return allVisibleText;
+    return { success: true, text: allVisibleText, url: privacyPolicyUrl };
     
   } catch (error) {
     console.error('Error in search function:', error);
+    
+    // Return the URL we found (if any) even when scraping fails
+    if (privacyPolicyUrl) {
+      return { 
+        success: false, 
+        text: null, 
+        url: privacyPolicyUrl, 
+        error: error.message 
+      };
+    }
+    
     throw error;
   } finally {
     // Cleanup
@@ -242,33 +249,49 @@ app.post('/api/extract-policy', async (req, res) => {
 
     console.log(`Starting policy extraction for: ${serviceName}`);
     
-    // Step 1: Search and scrape the privacy policy page
-    const privacyPageText = await search(serviceName.trim());
+    // Step 1: Search and attempt to scrape the privacy policy page
+    const searchResult = await search(serviceName.trim());
     
-    if (!privacyPageText) {
+    if (searchResult.success && searchResult.text) {
+      // Step 2: Extract policy text using AI
+      const policyText = await extractPrivacyPolicy(searchResult.text);
+      
+      if (!policyText || policyText.length < 100) {
+        return res.status(404).json({ 
+          message: 'Could not extract meaningful privacy policy text from the page',
+          success: false,
+          privacyPolicyUrl: searchResult.url
+        });
+      }
+
+      console.log(`Successfully extracted policy for: ${serviceName}`);
+      
+      res.json({ 
+        success: true,
+        policyText: policyText,
+        message: 'Privacy policy extracted successfully',
+        privacyPolicyUrl: searchResult.url
+      });
+      
+    } else if (searchResult.url) {
+      // We found the URL but couldn't scrape it (likely blocked)
+      console.log(`Found URL but scraping failed for: ${serviceName}`);
+      
+      res.status(200).json({ 
+        success: false,
+        blocked: true,
+        privacyPolicyUrl: searchResult.url,
+        message: 'Privacy policy page found but could not be accessed automatically',
+        userFriendlyMessage: `We found the privacy policy page for ${serviceName}, but the website blocks automated access. Please copy and paste the policy text manually from the link below.`,
+        details: searchResult.error
+      });
+      
+    } else {
       return res.status(404).json({ 
         message: 'Could not find privacy policy page for this service',
         success: false
       });
     }
-
-    // Step 2: Extract policy text using AI
-    const policyText = await extractPrivacyPolicy(privacyPageText);
-    
-    if (!policyText || policyText.length < 100) {
-      return res.status(404).json({ 
-        message: 'Could not extract meaningful privacy policy text from the page',
-        success: false
-      });
-    }
-
-    console.log(`Successfully extracted policy for: ${serviceName}`);
-    
-    res.json({ 
-      success: true,
-      policyText: policyText,
-      message: 'Privacy policy extracted successfully'
-    });
     
   } catch (error) {
     console.error('Policy extraction error:', error);
@@ -277,12 +300,10 @@ app.post('/api/extract-policy', async (req, res) => {
     
     if (error.message.includes('Could not find the official website')) {
       errorMessage = 'Could not find the official website for this service. Please check the service name and try again.';
-    } else if (error.message.includes('Could not find privacy policy link')) {
-      errorMessage = 'Found the website but could not locate a privacy policy link. Please enter the policy text manually.';
     } else if (error.message.includes('timeout')) {
-      errorMessage = 'The website took too long to load. Please try again or enter the policy text manually.';
-    } else if (error.message.includes('empty or too short')) {
-      errorMessage = 'The privacy policy page appears to be empty. Please enter the policy text manually.';
+      errorMessage = 'The search request took too long to complete. Please try again or enter the policy text manually.';
+    } else if (error.message.includes('Brave Search API')) {
+      errorMessage = 'Search service is temporarily unavailable. Please enter the policy text manually.';
     }
     
     res.status(500).json({ 
@@ -321,8 +342,6 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   console.log('Privacy Policy Analyzer API is ready!');
 });
-
-
 
 if(process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "/frontend/dist")));
