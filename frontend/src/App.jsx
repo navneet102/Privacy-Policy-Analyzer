@@ -94,7 +94,7 @@ const AnalyzerPage = () => {
                 id="serviceName"
                 value={serviceName}
                 onChange={(e) => setServiceName(e.target.value)}
-                placeholder="e.g., Google, Facebook, Microsoft"
+                placeholder="e.g., Amazon, Facebook, Microsoft"
                 disabled={isLoading || isExtracting}
               />
               

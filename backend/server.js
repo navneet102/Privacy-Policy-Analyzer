@@ -1,9 +1,13 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import { chromium } from "playwright";
+// import { chromium } from "playwright";
 import { GoogleGenAI } from "@google/genai";
 import path from "path";
+import { chromium } from "playwright-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+
+chromium.use(StealthPlugin);
 
 dotenv.config();
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
