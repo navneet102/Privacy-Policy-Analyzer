@@ -340,7 +340,7 @@ app.get('/api/health', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log('Privacy Policy Analyzer API is ready!');
+  console.log('Privacy Lens API is ready!');
 });
 
 if(process.env.NODE_ENV === "production") {
