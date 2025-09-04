@@ -11,7 +11,7 @@ const Homepage = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 text-sky-400">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
                         </svg>
-                        <span className="text-xl font-bold text-sky-400">Privacy Analyzer</span>
+                        <span className="text-xl font-bold text-sky-400">Privacy Lens</span>
                     </div>
                     <div className="flex space-x-6">
                         <Link to="/analyzer" className="text-slate-300 hover:text-sky-400 transition-colors">
@@ -27,12 +27,12 @@ const Homepage = () => {
             {/* Hero Section */}
             <div className="container mx-auto px-6 py-20 text-center">
                 <div className="max-w-4xl mx-auto">
-                    <div className="flex items-center justify-center space-x-3 mb-6">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16 text-sky-400">
+                    <div className="flex items-center justify-center space-x-3 mb-8 px-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-16 h-16 text-sky-400 flex-shrink-0">
                             <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
                         </svg>
-                        <h1 className="text-6xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-cyan-300">
-                            Privacy Policy Analyzer
+                        <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-sky-400 to-cyan-300 py-2 px-1 leading-tight">
+                            Privacy Lens
                         </h1>
                     </div>
                     
@@ -88,7 +88,7 @@ const Homepage = () => {
             {/* Footer */}
             <footer className="border-t border-slate-700 py-8">
                 <div className="container mx-auto px-6 text-center text-slate-400">
-                    <p>&copy; {new Date().getFullYear()} Privacy Policy Analyzer. For informational purposes only.</p>
+                    <p>&copy; {new Date().getFullYear()} Privacy Lens. For informational purposes only.</p>
                     <p className="mt-1">
                         Powered by AI Analysis. Always consult legal professionals for critical decisions.
                     </p>

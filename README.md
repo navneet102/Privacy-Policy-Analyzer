@@ -1,8 +1,8 @@
-# Privacy Policy Analyzer
+# Privacy Lens
 
 A modern, responsive web application that uses AI to analyze privacy policies and terms of service documents, making complex legal language accessible to everyday users.
 
-![Privacy Policy Analyzer](https://via.placeholder.com/800x400/0ea5e9/ffffff?text=Privacy+Policy+Analyzer)
+![Privacy Lens](https://via.placeholder.com/800x400/0ea5e9/ffffff?text=Privacy+Lens)
 
 ## Features
 

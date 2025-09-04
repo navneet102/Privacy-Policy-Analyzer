@@ -1,19 +1,27 @@
 import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
-import { chromium } from "playwright";
+// import { chromium } from "playwright";
 import { GoogleGenAI } from "@google/genai";
 import path from "path";
+import { chromium } from "playwright-extra";
+import StealthPlugin from "puppeteer-extra-plugin-stealth";
+
+chromium.use(StealthPlugin);
 
 dotenv.config();
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-
+if (!process.env.GEMINI_API_KEY) {
+  throw new Error("GEMINI_API_KEY is not defined in the environment variables.");
+}
+if (!process.env.BRAVE_API_KEY) {
+  throw new Error("BRAVE_API_KEY is not defined in the environment variables.");
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 const __dirname = path.resolve();
-
 
 if(process.env.NODE_ENV !== "production"){
   app.use(cors({
@@ -22,7 +30,6 @@ if(process.env.NODE_ENV !== "production"){
     methods: ["GET", "POST", "PUT", "DELETE"],
   }));
 }
-
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
@@ -134,15 +141,50 @@ async function extractPrivacyPolicy(privacyPageText) {
     }
   });
   return response.text;
-
 }
 
 const search = async (serviceName) => {
   let browser, context, page;
+  let privacyPolicyUrl = null;
   
   try {
+    // Step 1: Use Brave Search API to find the privacy policy URL
+    console.log(`Searching for privacy policy URL for: ${serviceName}`);
+    const params = new URLSearchParams({
+      q: `${serviceName} privacy policy`,
+      country: 'IN',
+      count: '1',
+      ui_lang: 'en-US',
+      result_filter: 'web'
+    });
+    const braveApiUrl = `https://api.search.brave.com/res/v1/web/search?${params.toString()}`;
+    
+    const braveResponse = await fetch(braveApiUrl, {
+      headers: {
+        "X-Subscription-Token": process.env.BRAVE_API_KEY,
+        "X-Loc-Country": 'IN',
+        "Accept": "application/json"
+      }
+    });
+
+    if (!braveResponse.ok) {
+      const errorBody = await braveResponse.text();
+      console.error("Brave Search API error:", errorBody);
+      throw new Error(`Brave Search API request failed with status: ${braveResponse.status}`);
+    }
+
+    const searchData = await braveResponse.json();
+
+    if (!searchData.web || !searchData.web.results || searchData.web.results.length === 0) {
+      throw new Error('Could not find the official website for this service using Brave Search API.');
+    }
+
+    privacyPolicyUrl = searchData.web.results[0].url;
+    console.log('Found privacy policy URL:', privacyPolicyUrl);
+
+    // Step 2: Use Playwright to scrape the content from the found URL
     browser = await chromium.launch({
-      headless: false, // Changed to true for production
+      headless: true, 
       timeout: 30000,
     });
     
@@ -156,66 +198,8 @@ const search = async (serviceName) => {
     page.setDefaultTimeout(15000);
     page.setDefaultNavigationTimeout(15000);
     
-    await page.goto('https://duckduckgo.com/');
-    
-    // Search for the service
-    await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).click();
-    await page.getByRole('combobox', { name: 'Search with DuckDuckGo' }).fill(`${serviceName} privacy policy`);
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
-    
-    // Wait for search results
-    await page.waitForSelector('#r1-0', { timeout: 10000 });
-    
-    // let href = await page.locator('#r1-0 > div:nth-child(3) > h2 > a').getAttribute('href');
-    // console.log('Found website:', href);
-
-    // if (!href) {
-    //   throw new Error('Could not find the official website for this service');
-    // }
-
-    // // Navigate to the main website
-    // await page.goto(href);
-    
-    // Look for privacy policy link
-    // let href1;
-    // try {
-    //   href1 = await page.getByRole('link', { name: /privacy/i }).getAttribute('href');
-    // } catch (error) {
-    //   // Try alternative selectors
-    //   try {
-    //     href1 = await page.locator('a[href*="privacy"]').first().getAttribute('href');
-    //   } catch (error2) {
-    //     throw new Error('Could not find privacy policy link on the website');
-    //   }
-    // }
-
-    let href1;
-    try {
-      href1 = await page.locator('#r1-0 > div:nth-child(3) > h2 > a').getAttribute('href');
-    } catch (error) {
-      // Try alternative selectors
-      try {
-        href1 = await page.locator('a[href*="privacy"]').first().getAttribute('href');
-      } catch (error2) {
-        throw new Error('Could not find privacy policy link on the website');
-      }
-    }
-    if (!href1) {
-      throw new Error('Could not find privacy policy link on the website');
-    }
-
-    // Handle relative URLs
-    if (!href1.includes("http")) {
-      if (href1.startsWith('/')) {
-        href1 = href1.slice(1);
-      }
-      href1 = `${href}${href1}`;
-    }
-
-    console.log('Found privacy policy URL:', href1);
-    
     // Navigate to privacy policy page
-    await page.goto(href1);
+    await page.goto(privacyPolicyUrl);
     
     // Extract all visible text
     const allVisibleText = await page.locator('body').innerText();
@@ -224,10 +208,21 @@ const search = async (serviceName) => {
       throw new Error('Privacy policy page appears to be empty or too short');
     }
 
-    return allVisibleText;
+    return { success: true, text: allVisibleText, url: privacyPolicyUrl };
     
   } catch (error) {
     console.error('Error in search function:', error);
+    
+    // Return the URL we found (if any) even when scraping fails
+    if (privacyPolicyUrl) {
+      return { 
+        success: false, 
+        text: null, 
+        url: privacyPolicyUrl, 
+        error: error.message 
+      };
+    }
+    
     throw error;
   } finally {
     // Cleanup
@@ -254,33 +249,49 @@ app.post('/api/extract-policy', async (req, res) => {
 
     console.log(`Starting policy extraction for: ${serviceName}`);
     
-    // Step 1: Search and scrape the privacy policy page
-    const privacyPageText = await search(serviceName.trim());
+    // Step 1: Search and attempt to scrape the privacy policy page
+    const searchResult = await search(serviceName.trim());
     
-    if (!privacyPageText) {
+    if (searchResult.success && searchResult.text) {
+      // Step 2: Extract policy text using AI
+      const policyText = await extractPrivacyPolicy(searchResult.text);
+      
+      if (!policyText || policyText.length < 100) {
+        return res.status(404).json({ 
+          message: 'Could not extract meaningful privacy policy text from the page',
+          success: false,
+          privacyPolicyUrl: searchResult.url
+        });
+      }
+
+      console.log(`Successfully extracted policy for: ${serviceName}`);
+      
+      res.json({ 
+        success: true,
+        policyText: policyText,
+        message: 'Privacy policy extracted successfully',
+        privacyPolicyUrl: searchResult.url
+      });
+      
+    } else if (searchResult.url) {
+      // We found the URL but couldn't scrape it (likely blocked)
+      console.log(`Found URL but scraping failed for: ${serviceName}`);
+      
+      res.status(200).json({ 
+        success: false,
+        blocked: true,
+        privacyPolicyUrl: searchResult.url,
+        message: 'Privacy policy page found but could not be accessed automatically',
+        userFriendlyMessage: `We found the privacy policy page for ${serviceName}, but the website blocks automated access. Please copy and paste the policy text manually from the link below.`,
+        details: searchResult.error
+      });
+      
+    } else {
       return res.status(404).json({ 
         message: 'Could not find privacy policy page for this service',
         success: false
       });
     }
-
-    // Step 2: Extract policy text using AI
-    const policyText = await extractPrivacyPolicy(privacyPageText);
-    
-    if (!policyText || policyText.length < 100) {
-      return res.status(404).json({ 
-        message: 'Could not extract meaningful privacy policy text from the page',
-        success: false
-      });
-    }
-
-    console.log(`Successfully extracted policy for: ${serviceName}`);
-    
-    res.json({ 
-      success: true,
-      policyText: policyText,
-      message: 'Privacy policy extracted successfully'
-    });
     
   } catch (error) {
     console.error('Policy extraction error:', error);
@@ -289,12 +300,10 @@ app.post('/api/extract-policy', async (req, res) => {
     
     if (error.message.includes('Could not find the official website')) {
       errorMessage = 'Could not find the official website for this service. Please check the service name and try again.';
-    } else if (error.message.includes('Could not find privacy policy link')) {
-      errorMessage = 'Found the website but could not locate a privacy policy link. Please enter the policy text manually.';
     } else if (error.message.includes('timeout')) {
-      errorMessage = 'The website took too long to load. Please try again or enter the policy text manually.';
-    } else if (error.message.includes('empty or too short')) {
-      errorMessage = 'The privacy policy page appears to be empty. Please enter the policy text manually.';
+      errorMessage = 'The search request took too long to complete. Please try again or enter the policy text manually.';
+    } else if (error.message.includes('Brave Search API')) {
+      errorMessage = 'Search service is temporarily unavailable. Please enter the policy text manually.';
     }
     
     res.status(500).json({ 
@@ -331,10 +340,8 @@ app.get('/api/health', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
-  console.log('Privacy Policy Analyzer API is ready!');
+  console.log('Privacy Lens API is ready!');
 });
-
-
 
 if(process.env.NODE_ENV === "production") {
   app.use(express.static(path.join(__dirname, "/frontend/dist")));

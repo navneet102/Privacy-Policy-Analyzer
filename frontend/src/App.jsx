@@ -23,6 +23,7 @@ const AnalyzerPage = () => {
   const [error, setError] = useState(null);
   const [showPolicyField, setShowPolicyField] = useState(false);
   const [extractionAttempted, setExtractionAttempted] = useState(false);
+  const [blockedInfo, setBlockedInfo] = useState(null); // New state for blocked website info
 
   const handleExtractPolicy = useCallback(async () => {
     if (!serviceName.trim()) {
@@ -31,6 +32,7 @@ const AnalyzerPage = () => {
     }
     
     setError(null);
+    setBlockedInfo(null);
     setIsExtracting(true);
     setExtractionAttempted(true);
     
@@ -40,17 +42,23 @@ const AnalyzerPage = () => {
         setPolicyText(result.policyText);
         setShowPolicyField(true);
         setError(null);
-        // Show success message
-        setTimeout(() => {
-          setError(null);
-        }, 3000);
+        setBlockedInfo(null);
+      } else if (result.blocked && result.privacyPolicyUrl) {
+        // Handle blocked case - show user-friendly message with link
+        setBlockedInfo({
+          url: result.privacyPolicyUrl,
+          message: result.userFriendlyMessage || `We found the privacy policy page for ${serviceName}, but the website blocks automated access. Please copy and paste the policy text manually from the link below.`
+        });
+        setShowPolicyField(true);
+        setError(null);
       } else {
         throw new Error(result.message || 'Failed to extract policy');
       }
     } catch (e) {
       console.error("Extraction error:", e);
       setError(e.message || 'Failed to extract policy automatically. Please paste the policy text manually.');
-      setShowPolicyField(true); // Show manual input field on failure
+      setShowPolicyField(true);
+      setBlockedInfo(null);
     } finally {
       setIsExtracting(false);
     }
@@ -68,6 +76,8 @@ const AnalyzerPage = () => {
     try {
       const result = await analyzePolicyWithAPI(serviceName, policyText);
       setAnalysisResult(result);
+      // Hide blocked info when analysis is successful
+      setBlockedInfo(null);
     } catch (e) {
       console.error("Analysis error:", e);
       setError(e.message || 'Failed to analyze policy. Please try again.');
@@ -79,6 +89,11 @@ const AnalyzerPage = () => {
   const handleManualEntry = () => {
     setShowPolicyField(true);
     setExtractionAttempted(true);
+    setBlockedInfo(null);
+  };
+
+  const handleDismissBlockedInfo = () => {
+    setBlockedInfo(null);
   };
 
   return (
@@ -94,7 +109,7 @@ const AnalyzerPage = () => {
                 id="serviceName"
                 value={serviceName}
                 onChange={(e) => setServiceName(e.target.value)}
-                placeholder="e.g., Google, Facebook, Microsoft"
+                placeholder="Facebook, Microsoft, Google"
                 disabled={isLoading || isExtracting}
               />
               
@@ -146,7 +161,7 @@ const AnalyzerPage = () => {
                   />
                   
                   {/* Option to retry extraction */}
-                  {extractionAttempted && !policyText && (
+                  {extractionAttempted && !policyText && !blockedInfo && (
                     <Button
                       onClick={handleExtractPolicy}
                       disabled={isExtracting || !serviceName.trim()}
@@ -198,13 +213,60 @@ const AnalyzerPage = () => {
               </div>
             )}
             
+            {/* Blocked website notification - only show when NOT displaying analysis results */}
+            {blockedInfo && !isLoading && !isExtracting && !analysisResult && (
+              <div className="bg-amber-900/30 border border-amber-600 p-6 rounded-lg shadow-md">
+                <div className="flex items-start space-x-3">
+                  <div className="flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-amber-400">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-amber-300 mb-2">Manual Input Required</h3>
+                    <p className="text-amber-200 text-sm mb-4 leading-relaxed">
+                      {blockedInfo.message}
+                    </p>
+                    <div className="bg-slate-700/50 p-3 rounded-md border border-slate-600 mb-4">
+                      <p className="text-xs text-slate-400 mb-1">Privacy Policy URL:</p>
+                      <a 
+                        href={blockedInfo.url}
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-sky-400 hover:text-sky-300 underline break-all text-sm transition-colors"
+                      >
+                        {blockedInfo.url}
+                      </a>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5 text-amber-400 flex-shrink-0">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                      </svg>
+                      <p className="text-amber-200 text-xs">
+                        Click the link to open the privacy policy page, then copy and paste the text into the field below.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleDismissBlockedInfo}
+                    className="flex-shrink-0 ml-auto -mx-1.5 -my-1.5 p-1.5 rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 text-amber-300 hover:bg-amber-800/30 transition-colors"
+                    aria-label="Dismiss"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+            
             {/* Error states */}
-            {error && !isLoading && !isExtracting && (
+            {error && !isLoading && !isExtracting && !blockedInfo && (
               <Alert type={AlertType.Error} message={error} onClose={() => setError(null)} />
             )}
             
             {/* Success - policy extracted */}
-            {showPolicyField && policyText && !error && !isLoading && !isExtracting && !analysisResult && (
+            {showPolicyField && policyText && !error && !isLoading && !isExtracting && !analysisResult && !blockedInfo && (
               <div className="bg-emerald-900/20 border border-emerald-700 p-6 rounded-lg">
                 <div className="flex items-center mb-3">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-emerald-400 mr-2">
@@ -224,7 +286,7 @@ const AnalyzerPage = () => {
             )}
             
             {/* Default state */}
-            {!analysisResult && !isLoading && !isExtracting && !error && !showPolicyField && (
+            {!analysisResult && !isLoading && !isExtracting && !error && !showPolicyField && !blockedInfo && (
               <div className="flex items-center justify-center h-full bg-slate-700/50 p-6 rounded-lg text-center">
                 <div>
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-slate-400 mx-auto mb-4">
@@ -236,7 +298,7 @@ const AnalyzerPage = () => {
             )}
             
             {/* Waiting for manual input */}
-            {!analysisResult && !isLoading && !isExtracting && !error && showPolicyField && !policyText && (
+            {!analysisResult && !isLoading && !isExtracting && !error && showPolicyField && !policyText && !blockedInfo && (
               <div className="flex items-center justify-center h-full bg-slate-700/50 p-6 rounded-lg text-center">
                 <p className="text-slate-400">Enter the privacy policy text and click "Analyze Policy" to see the results here.</p>
               </div>
