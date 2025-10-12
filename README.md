@@ -2,18 +2,6 @@
 
 A modern, responsive web application that uses AI to analyze privacy policies and terms of service documents, making complex legal language accessible to everyday users.
 
-![Privacy Lens](https://via.placeholder.com/800x400/0ea5e9/ffffff?text=Privacy+Lens)
-
-## Features
-
-- 🤖 **AI-Powered Analysis**: Uses Google's Gemini AI to analyze complex legal documents
-- 📊 **Overall Ranking**: Get quick assessments of how privacy-friendly policies are
-- 📝 **Clear Summaries**: Understand key points in plain language
-- ⚠️ **Concern Identification**: Automatically spots potentially problematic clauses
-- ✅ **Positive Aspects**: Highlights user-friendly and privacy-respecting features
-- 🎨 **Modern UI**: Clean, responsive design with Tailwind CSS and DaisyUI
-- 🚀 **Fast & Responsive**: Built with React and Vite for optimal performance
-
 ## Tech Stack
 
 ### Frontend
@@ -182,41 +170,6 @@ Health check endpoint.
   "message": "Server is running"
 }
 ```
-
-## Design Philosophy
-
-This application follows modern web development best practices:
-
-- **Component-Based Architecture**: Reusable, modular components
-- **Responsive Design**: Works on all device sizes
-- **Accessibility**: Proper ARIA labels and keyboard navigation
-- **Modern Styling**: Clean, professional design with Tailwind CSS
-- **Type Safety**: Consistent data structures and validation
-- **Error Handling**: Graceful error states and user feedback
-- **Performance**: Optimized with Vite and modern React patterns
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Disclaimer
-
-This tool provides AI-generated analysis for informational purposes only. It should not be considered as legal advice or a substitute for consultation with qualified legal professionals. While we strive for accuracy, AI interpretations may not always be complete or up-to-date with the latest legal standards. Always review policies carefully yourself and consult legal experts for critical decisions.
-
-## Support
-
-If you encounter any issues or have questions, please:
-1. Check the existing issues in the repository
-2. Create a new issue with detailed information
-3. Include error messages and steps to reproduce
 
 ## Acknowledgments
 
