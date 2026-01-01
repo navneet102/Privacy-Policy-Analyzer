@@ -130,7 +130,8 @@ const analyzePolicyWithGemini = async (serviceName, policyText) => {
 
 async function extractPrivacyPolicy(privacyPageText) {
   const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
+    // model: "gemini-2.0-flash",     //Gemini dropped support for this model
+    model: "gemini-2.5-flash-lite",
     contents: `From the following text of a webpage, please identify and extract the complete and full text of the "Privacy Policy," "Terms of Service," "Terms and Conditions," and any other similar legal or usage terms. Combine all these sections into a single response, and do not include any other parts of the document.
               Full Text:
               ${privacyPageText}`, 
