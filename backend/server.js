@@ -6,6 +6,9 @@ import { GoogleGenAI } from "@google/genai";
 import path from "path";
 import { chromium } from "playwright-extra";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
+// import read from "readability-js";
+import { Readability } from "@mozilla/readability"
+import { JSDOM } from "jsdom"
 
 chromium.use(StealthPlugin);
 
@@ -128,22 +131,6 @@ const analyzePolicyWithGemini = async (serviceName, policyText) => {
   }
 };
 
-async function extractPrivacyPolicy(privacyPageText) {
-  const response = await ai.models.generateContent({
-    // model: "gemini-2.0-flash",     //Gemini dropped support for this model
-    model: "gemini-2.5-flash-lite",
-    contents: `From the following text of a webpage, please identify and extract the complete and full text of the "Privacy Policy," "Terms of Service," "Terms and Conditions," and any other similar legal or usage terms. Combine all these sections into a single response, and do not include any other parts of the document.
-              Full Text:
-              ${privacyPageText}`, 
-    config: {
-      thinkingConfig: {
-        thinkingBudget: 0,
-      }
-    }
-  });
-  return response.text;
-}
-
 const search = async (serviceName) => {
   let browser, context, page;
   let privacyPolicyUrl = null;
@@ -202,14 +189,10 @@ const search = async (serviceName) => {
     // Navigate to privacy policy page
     await page.goto(privacyPolicyUrl);
     
-    // Extract all visible text
-    const allVisibleText = await page.locator('body').innerText();
+    // Extract html
+    const htmlContent = await page.content();
     
-    if (!allVisibleText || allVisibleText.length < 100) {
-      throw new Error('Privacy policy page appears to be empty or too short');
-    }
-
-    return { success: true, text: allVisibleText, url: privacyPolicyUrl };
+    return { success: true, htmlContent: htmlContent, url: privacyPolicyUrl };
     
   } catch (error) {
     console.error('Error in search function:', error);
@@ -218,8 +201,8 @@ const search = async (serviceName) => {
     if (privacyPolicyUrl) {
       return { 
         success: false, 
-        text: null, 
         url: privacyPolicyUrl, 
+        htmlContent: htmlContent,
         error: error.message 
       };
     }
@@ -253,9 +236,11 @@ app.post('/api/extract-policy', async (req, res) => {
     // Step 1: Search and attempt to scrape the privacy policy page
     const searchResult = await search(serviceName.trim());
     
-    if (searchResult.success && searchResult.text) {
-      // Step 2: Extract policy text using AI
-      const policyText = await extractPrivacyPolicy(searchResult.text);
+    if (searchResult.success && searchResult.htmlContent) {
+      const url = searchResult.url;
+      const doc = new JSDOM(searchResult.htmlContent, { url });
+      const reader = new Readability(doc.window.document);
+      const policyText = reader.parse().textContent;
       
       if (!policyText || policyText.length < 100) {
         return res.status(404).json({ 
