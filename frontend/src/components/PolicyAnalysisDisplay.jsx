@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 const getRankingColor = (ranking) => {
   if (!ranking) return 'text-sky-400';
@@ -34,7 +34,26 @@ const PositiveIcon = () => (
   </svg>
 );
 
+const ChevronIcon = ({ isOpen }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={2}
+    stroke="currentColor"
+    className={`w-5 h-5 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+  </svg>
+);
+
 export const PolicyAnalysisDisplay = ({ result }) => {
+  const [isWorryingOpen, setIsWorryingOpen] = useState(false);
+  const [isPositiveOpen, setIsPositiveOpen] = useState(false);
+
+  const worryingCount = result?.worryingClauses ? result.worryingClauses.length : 0;
+  const positiveCount = result?.positiveAspects ? result.positiveAspects.length : 0;
+
   return (
     <div className="space-y-6 p-6 bg-slate-700/70 rounded-lg shadow-inner">
       <div className="flex flex-col md:flex-row md:justify-between md:items-start border-b border-slate-600 pb-4">
@@ -59,66 +78,74 @@ export const PolicyAnalysisDisplay = ({ result }) => {
         <p className="text-slate-300 leading-relaxed">{result.summary}</p>
       </div>
 
-      {result.worryingClauses && result.worryingClauses.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-red-400 mb-2">Potential Concerns</h3>
-          <ul className="space-y-1 text-slate-300 list-inside">
-            {result.worryingClauses.map((clause, index) => (
-              <ListItem key={`worry-${index}`} icon={<WorryingIcon/>}>
-                {clause}
-              </ListItem>
-            ))}
-          </ul>
-        </div>
-      )}
-      {(result.worryingClauses?.length === 0) && (
-        <div>
-          <h3 className="text-lg font-semibold text-green-400 mb-2">Potential Concerns</h3>
-          <p className="text-slate-300">No major worrying clauses identified by the AI.</p>
-        </div>
-      )}
-
-      {result.positiveAspects && result.positiveAspects.length > 0 && (
-        <div>
-          <h3 className="text-lg font-semibold text-green-400 mb-2">Positive Aspects</h3>
-          <ul className="space-y-1 text-slate-300 list-inside">
-            {result.positiveAspects.map((aspect, index) => (
-              <ListItem key={`positive-${index}`} icon={<PositiveIcon/>}>
-                {aspect}
-              </ListItem>
-            ))}
-          </ul>
-        </div>
-      )}
-      {(result.positiveAspects?.length === 0) && (
-        <div>
-          <h3 className="text-lg font-semibold text-sky-400 mb-2">Positive Aspects</h3>
-          <p className="text-slate-300">No specific positive aspects highlighted by the AI.</p>
-        </div>
-      )}
-
-      {/* {result.rubricDetails && result.rubricDetails.length > 0 && (
-        <div className="pt-4 border-t border-slate-600 mt-6">
-          <h3 className="text-lg font-semibold text-sky-300 mb-3">Detailed Rubric Analysis</h3>
-          <div className="space-y-3">
-            {result.rubricDetails.map((detail, index) => (
-              <div key={index} className="bg-slate-800/50 p-4 rounded-md border border-slate-600/50">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="font-semibold text-slate-200">{detail.category}</span>
-                  <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                    detail.status === 'Good' ? 'bg-green-500/20 text-green-400' :
-                    detail.status === 'Bad' ? 'bg-red-500/20 text-red-400' :
-                    'bg-slate-500/20 text-slate-300'
-                  }`}>
-                    {detail.status}
-                  </span>
-                </div>
-                <p className="text-sm text-slate-400 italic break-words">"{detail.quote}"</p>
-              </div>
-            ))}
+      {/* Potential Concerns Section (Expandable) */}
+      <div className="border border-slate-600/80 rounded-lg overflow-hidden bg-slate-800/40">
+        <button
+          onClick={() => setIsWorryingOpen(!isWorryingOpen)}
+          className="w-full flex items-center justify-between p-4 bg-slate-800/80 hover:bg-slate-800 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-red-500/30"
+          aria-expanded={isWorryingOpen}
+        >
+          <div className="flex items-center space-x-3">
+            <WorryingIcon />
+            <h3 className="text-lg font-semibold text-red-400">Potential Concerns</h3>
+            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-red-500/20 text-red-300 border border-red-500/30">
+              {worryingCount}
+            </span>
           </div>
-        </div>
-      )} */}
+          <ChevronIcon isOpen={isWorryingOpen} />
+        </button>
+
+        {isWorryingOpen && (
+          <div className="p-4 border-t border-slate-600/60 bg-slate-900/30">
+            {worryingCount > 0 ? (
+              <ul className="space-y-1 text-slate-300">
+                {result.worryingClauses.map((clause, index) => (
+                  <ListItem key={`worry-${index}`} icon={<WorryingIcon />}>
+                    {clause}
+                  </ListItem>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-slate-300 text-sm">No major worrying clauses identified by the AI.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Positive Aspects Section (Expandable) */}
+      <div className="border border-slate-600/80 rounded-lg overflow-hidden bg-slate-800/40">
+        <button
+          onClick={() => setIsPositiveOpen(!isPositiveOpen)}
+          className="w-full flex items-center justify-between p-4 bg-slate-800/80 hover:bg-slate-800 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-green-500/30"
+          aria-expanded={isPositiveOpen}
+        >
+          <div className="flex items-center space-x-3">
+            <PositiveIcon />
+            <h3 className="text-lg font-semibold text-green-400">Positive Aspects</h3>
+            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-green-500/20 text-green-300 border border-green-500/30">
+              {positiveCount}
+            </span>
+          </div>
+          <ChevronIcon isOpen={isPositiveOpen} />
+        </button>
+
+        {isPositiveOpen && (
+          <div className="p-4 border-t border-slate-600/60 bg-slate-900/30">
+            {positiveCount > 0 ? (
+              <ul className="space-y-1 text-slate-300">
+                {result.positiveAspects.map((aspect, index) => (
+                  <ListItem key={`positive-${index}`} icon={<PositiveIcon />}>
+                    {aspect}
+                  </ListItem>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-slate-300 text-sm">No specific positive aspects highlighted by the AI.</p>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
+

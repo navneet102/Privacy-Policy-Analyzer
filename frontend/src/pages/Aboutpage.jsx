@@ -13,14 +13,14 @@ const Aboutpage = () => {
                         </svg>
                         <span className="text-xl font-bold text-sky-400">Privacy Lens</span>
                     </Link>
-                    <div className="flex space-x-6">
+                    {/* <div className="flex space-x-6">
                         <Link to="/" className="text-slate-300 hover:text-sky-400 transition-colors">
                             Home
                         </Link>
                         <Link to="/analyzer" className="text-slate-300 hover:text-sky-400 transition-colors">
                             Analyzer
                         </Link>
-                    </div>
+                    </div> */}
                 </div>
             </nav>
 
@@ -72,27 +72,27 @@ const Aboutpage = () => {
                             <h2 className="text-2xl font-semibold text-sky-300 mb-4">Features</h2>
                             <div className="grid md:grid-cols-2 gap-6">
                                 <div>
-                                    <h3 className="font-semibold text-slate-200 mb-2">📊 Overall Ranking</h3>
+                                    <h3 className="font-semibold text-slate-200 mb-2">Overall Ranking</h3>
                                     <p className="text-slate-400">Get a quick assessment of how privacy-friendly the policy is.</p>
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-slate-200 mb-2">📝 Clear Summary</h3>
+                                    <h3 className="font-semibold text-slate-200 mb-2">Clear Summary</h3>
                                     <p className="text-slate-400">Understand the key points in plain language.</p>
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-slate-200 mb-2">⚠️ Concern Identification</h3>
+                                    <h3 className="font-semibold text-slate-200 mb-2">Concern Identification</h3>
                                     <p className="text-slate-400">Automatically spots potentially problematic clauses.</p>
                                 </div>
                                 <div>
-                                    <h3 className="font-semibold text-slate-200 mb-2">✅ Positive Aspects</h3>
+                                    <h3 className="font-semibold text-slate-200 mb-2">Positive Aspects</h3>
                                     <p className="text-slate-400">Highlights user-friendly and privacy-respecting features.</p>
                                 </div>
                             </div>
                         </div>
 
                         <div className="bg-amber-900/20 border border-amber-700 p-6 rounded-lg">
-                            <h2 className="text-xl font-semibold text-amber-300 mb-3">Important Disclaimer</h2>
-                            <p className="text-amber-200 text-sm leading-relaxed">
+                            <h2 className="text-xl font-semibold text-300 mb-3">Important Disclaimer</h2>
+                            <p className="text-200 text-sm leading-relaxed">
                                 This tool provides AI-generated analysis for informational purposes only. It should not be considered 
                                 as legal advice or a substitute for consultation with qualified legal professionals. While we strive 
                                 for accuracy, AI interpretations may not always be complete or up-to-date with the latest legal standards. 
