@@ -7,6 +7,7 @@ import { TextareaInput } from './components/TextareaInput.jsx';
 import { Button } from './components/Button.jsx';
 import { LoadingSpinner } from './components/LoadingSpinner.jsx';
 import { PolicyAnalysisDisplay } from './components/PolicyAnalysisDisplay.jsx';
+import { PolicyChat } from './components/PolicyChat.jsx';
 import { Alert } from './components/Alert.jsx';
 import { Disclaimer } from './components/Disclaimer.jsx';
 import { Header } from './components/Header.jsx';
@@ -99,7 +100,7 @@ const AnalyzerPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-slate-100 flex flex-col items-center p-4 selection:bg-sky-500 selection:text-white">
       <Header />
-      <main className="container mx-auto flex-grow w-full max-w-4xl p-6 bg-slate-800 shadow-2xl rounded-xl mt-8">
+      <main className="container mx-auto flex-grow w-full max-w-6xl p-6 bg-slate-800 shadow-2xl rounded-xl mt-8">
         <div className="grid md:grid-cols-2 gap-8">
           <section id="input-section">
             <h2 className="text-2xl font-semibold mb-6 text-sky-400">Policy Details</h2>
@@ -282,7 +283,10 @@ const AnalyzerPage = () => {
             
             {/* Analysis results */}
             {analysisResult && !isLoading && !isExtracting && !error && (
-              <PolicyAnalysisDisplay result={analysisResult} />
+              <>
+                <PolicyAnalysisDisplay result={analysisResult} />
+                <PolicyChat serviceName={serviceName} />
+              </>
             )}
             
             {/* Default state */}

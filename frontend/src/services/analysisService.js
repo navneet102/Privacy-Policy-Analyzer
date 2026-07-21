@@ -37,3 +37,23 @@ export const extractPolicyFromService = async (serviceName) => {
     throw new Error(`Failed to extract policy automatically: ${error.message || 'Unknown error'}`);
   }
 };
+
+export const chatWithPolicyWithAPI = async (serviceName, question) => {
+  try {
+    const response = await axiosInstance.post(`/api/chat-policy`, {
+      serviceName,
+      question
+    });
+    return response.data;
+  } catch (error) {
+    console.error("Error calling chat policy API:", error);
+    if (error.response?.data?.answer) {
+      throw new Error(error.response.data.answer);
+    }
+    if (error.response?.data?.message) {
+      throw new Error(error.response.data.message);
+    }
+    throw new Error(`Failed to communicate with chat service: ${error.message || 'Unknown error'}`);
+  }
+};
+

@@ -2,6 +2,7 @@ import { JSDOM } from "jsdom";
 import { Readability } from "@mozilla/readability";
 import { search } from "../services/scraper.service.js";
 import { analyzePolicyWithGemini } from "../lib/gemini.js";
+import { storeEmbeddings, queryPolicy } from "../services/rag.service.js";
 
 export const extract_policy = async (req, res) => {
     try {
@@ -94,11 +95,42 @@ export const analyze = async (req, res) => {
         }
 
         const result = await analyzePolicyWithGemini(serviceName, policyText);
+
+        // Pre-compute and store embeddings for RAG chat in the background
+        try {
+            await storeEmbeddings(serviceName, policyText);
+        } catch (embedError) {
+            console.error("Failed to generate and store embeddings for RAG:", embedError);
+        }
+
         res.json(result);
     } catch (error) {
         console.error('Analysis error:', error);
         res.status(500).json({
             message: error.message || 'Failed to analyze policy'
+        });
+    }
+}
+
+export const chatWithPolicy = async (req, res) => {
+    try {
+        const { serviceName, question } = req.body;
+
+        if (!serviceName || !question) {
+            return res.status(400).json({
+                message: 'Service name and question are required',
+                success: false
+            });
+        }
+
+        const result = await queryPolicy(serviceName, question);
+        
+        res.json(result);
+    } catch (error) {
+        console.error('Chat with policy error:', error);
+        res.status(500).json({
+            success: false,
+            answer: error.message || 'Failed to query the privacy policy'
         });
     }
 }
