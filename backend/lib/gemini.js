@@ -118,8 +118,6 @@ const calculateScoreAndFormat = (rubricData) => {
   // Add the additional clauses
   if (rubricData.additionalWorryingClauses) {
     worryingClauses.push(...rubricData.additionalWorryingClauses);
-    // Deduct a few points for these extra concerns to make the score more critical
-    score -= (rubricData.additionalWorryingClauses.length * 2);
   }
   if (rubricData.additionalPositiveAspects) {
     positiveAspects.push(...rubricData.additionalPositiveAspects);
