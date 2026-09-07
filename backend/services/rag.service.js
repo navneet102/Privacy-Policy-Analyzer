@@ -13,54 +13,131 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const vectorStore = new Map();
 
 /**
- * Splits text into overlapping chunks of a specified size, trying not to cut sentences or words.
- */
-export const chunkText = (text, chunkSize = 1000, overlap = 200) => {
-  const chunks = [];
-  if (!text) return chunks;
-
-  let i = 0;
-  while (i < text.length) {
-    let end = Math.min(i + chunkSize, text.length);
-
-    // If not at the end of the text, try to split at a space to keep words whole
-    if (end < text.length) {
-      const lastSpace = text.lastIndexOf(" ", end);
-      // Ensure we don't shrink the chunk too much (at least 60% of chunkSize)
-      if (lastSpace > i + chunkSize * 0.6) {
-        end = lastSpace;
-      }
-    }
-
-    const chunk = text.slice(i, end).trim();
-    if (chunk.length > 0) {
-      chunks.push(chunk);
-    }
-
-    i = end - overlap;
-    if (i >= text.length || end === text.length) break;
-    if (i <= 0) i = end; // Prevent infinite loop
-  }
-  return chunks;
-};
-
-/**
  * Calculates the cosine similarity between two vectors.
  */
 export const cosineSimilarity = (vecA, vecB) => {
   let dotProduct = 0.0;
   let normA = 0.0;
   let normB = 0.0;
-  
+
   for (let i = 0; i < vecA.length; i++) {
     dotProduct += vecA[i] * vecB[i];
     normA += vecA[i] * vecA[i];
     normB += vecB[i] * vecB[i];
   }
-  
+
   if (normA === 0 || normB === 0) return 0;
   return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
 };
+
+/**
+ * Splits text into sentences and merges overly short clauses or headers.
+ */
+export const splitIntoSentences = (text) => {
+  if (!text) return [];
+  const rawSentences = text
+    .split(/(?<=[.?!])\s+|\n\n+/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+
+  const merged = [];
+  for (let i = 0; i < rawSentences.length; i++) {
+    const current = rawSentences[i];
+    if (merged.length > 0 && merged[merged.length - 1].length < 40) {
+      merged[merged.length - 1] += " " + current;
+    } else {
+      merged.push(current);
+    }
+  }
+
+  if (merged.length > 1 && merged[merged.length - 1].length < 40) {
+    const last = merged.pop();
+    merged[merged.length - 1] += " " + last;
+  }
+
+  return merged;
+};
+
+/**
+ * Semantic-based chunking: groups sentences into cohesive chunks by measuring
+ * semantic similarity between consecutive sentences using Gemini embeddings.
+ * Splits occur when semantic topic shift is detected or max chunk size is reached.
+ */
+export const chunkSemanticText = async (text, options = {}) => {
+  const {
+    similarityThreshold = 0.70,
+    minChunkSize = 200,
+    maxChunkSize = 1200,
+  } = options;
+
+  if (!text || !text.trim()) return [];
+
+  const sentences = splitIntoSentences(text);
+  if (sentences.length <= 2) {
+    return [text.trim()];
+  }
+
+  try {
+    const batchSize = 64;
+    const vectors = [];
+    for (let i = 0; i < sentences.length; i += batchSize) {
+      const batch = sentences.slice(i, i + batchSize);
+      const res = await ai.models.embedContent({
+        model: "gemini-embedding-2",
+        contents: batch,
+      });
+      for (const emb of res.embeddings) {
+        vectors.push(emb.values);
+      }
+    }
+
+    const chunks = [];
+    let currentChunk = [];
+    let currentLength = 0;
+
+    for (let i = 0; i < sentences.length; i++) {
+      currentChunk.push(sentences[i]);
+      currentLength += sentences[i].length + 1;
+
+      const isLast = i === sentences.length - 1;
+      if (isLast) {
+        chunks.push(currentChunk.join(" ").trim());
+        break;
+      }
+
+      const sim = cosineSimilarity(vectors[i], vectors[i + 1]);
+      const isTopicShift = sim < similarityThreshold && currentLength >= minChunkSize;
+      const isTooLong = currentLength >= maxChunkSize;
+
+      if (isTopicShift || isTooLong) {
+        chunks.push(currentChunk.join(" ").trim());
+        currentChunk = [];
+        currentLength = 0;
+      }
+    }
+
+    return chunks;
+  } catch (error) {
+    console.warn("[RAG] Semantic embedding failed, falling back to sentence-boundary grouping:", error.message);
+    const chunks = [];
+    let currentChunk = [];
+    let currentLength = 0;
+
+    for (let i = 0; i < sentences.length; i++) {
+      currentChunk.push(sentences[i]);
+      currentLength += sentences[i].length + 1;
+
+      if (currentLength >= maxChunkSize || i === sentences.length - 1) {
+        chunks.push(currentChunk.join(" ").trim());
+        currentChunk = [];
+        currentLength = 0;
+      }
+    }
+    return chunks;
+  }
+};
+
+export const chunkText = chunkSemanticText;
 
 /**
  * Chunks a policy, gets embeddings from Gemini, and stores them in memory.
@@ -69,10 +146,10 @@ export const storeEmbeddings = async (serviceName, policyText) => {
   try {
     const cleanServiceName = serviceName.trim().toLowerCase();
     console.log(`[RAG] Preparing embeddings for service: ${serviceName}`);
-    
-    // 1. Chunk policy
-    const chunks = chunkText(policyText, 1000, 200);
-    console.log(`[RAG] Generated ${chunks.length} chunks for ${serviceName}`);
+
+    // 1. Chunk policy semantically
+    const chunks = await chunkSemanticText(policyText);
+    console.log(`[RAG] Generated ${chunks.length} semantic chunks for ${serviceName}`);
 
     if (chunks.length === 0) {
       console.warn(`[RAG] No chunks created for ${serviceName}. Text might be empty.`);
@@ -162,7 +239,7 @@ Answer:`;
 
     // 4. Generate grounded answer
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.6-flash",
       contents: userPrompt,
       config: {
         systemInstruction,
@@ -171,7 +248,7 @@ Answer:`;
     });
 
     const answer = response.text || "No response generated.";
-    
+
     return {
       success: true,
       answer,
