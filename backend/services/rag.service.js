@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { withRetry, parseErrorDetails } from "../lib/retry.js";
 
 dotenv.config();
 
@@ -79,11 +80,21 @@ export const storeEmbeddings = async (serviceName, policyText) => {
       return;
     }
 
-    // 2. Generate embeddings in a single batched call
-    const response = await ai.models.embedContent({
-      model: "gemini-embedding-2",
-      contents: chunks,
-    });
+    // 2. Generate embeddings in a single batched call with retry
+    const response = await withRetry(
+      async () => {
+        return await ai.models.embedContent({
+          model: "gemini-embedding-2",
+          contents: chunks,
+        });
+      },
+      {
+        operationName: `RAG Embeddings (${serviceName || 'General Policy'})`,
+        maxRetries: 3,
+        initialDelayMs: 1500,
+        backoffFactor: 2,
+      }
+    );
 
     if (!response.embeddings || response.embeddings.length !== chunks.length) {
       throw new Error("Mismatch in generated embeddings length or invalid API response.");
@@ -120,11 +131,21 @@ export const queryPolicy = async (serviceName, question) => {
 
     console.log(`[RAG] Querying policy for: ${serviceName || 'General Policy'} | Question: "${question}"`);
 
-    // 1. Embed user query
-    const embedResponse = await ai.models.embedContent({
-      model: "gemini-embedding-2",
-      contents: question,
-    });
+    // 1. Embed user query with retry
+    const embedResponse = await withRetry(
+      async () => {
+        return await ai.models.embedContent({
+          model: "gemini-embedding-2",
+          contents: question,
+        });
+      },
+      {
+        operationName: `RAG Question Embedding (${serviceName || 'General Policy'})`,
+        maxRetries: 3,
+        initialDelayMs: 1000,
+        backoffFactor: 2,
+      }
+    );
 
     if (!embedResponse.embeddings || embedResponse.embeddings.length === 0 || !embedResponse.embeddings[0].values) {
       throw new Error("Failed to generate embedding for the question.");
@@ -163,15 +184,43 @@ ${excerptsText}
 User's Question: "${question}"
 Answer:`;
 
-    // 4. Generate grounded answer
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: userPrompt,
-      config: {
-        systemInstruction,
-        temperature: 0.2,
-      },
-    });
+    // 4. Generate grounded answer with retry and fallback
+    const primaryModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash";
+
+    const callQueryModel = async (selectedModel) => {
+      return await withRetry(
+        async () => {
+          return await ai.models.generateContent({
+            model: selectedModel,
+            contents: userPrompt,
+            config: {
+              systemInstruction,
+              temperature: 0.2,
+            },
+          });
+        },
+        {
+          operationName: `RAG Grounded Response (${selectedModel})`,
+          maxRetries: 3,
+          initialDelayMs: 1500,
+          backoffFactor: 2,
+        }
+      );
+    };
+
+    let response;
+    try {
+      response = await callQueryModel(primaryModel);
+    } catch (primaryError) {
+      const errorDetails = parseErrorDetails(primaryError);
+      if (errorDetails.isTransient && fallbackModel && fallbackModel !== primaryModel) {
+        console.warn(`[RAG] Primary model ${primaryModel} failed. Attempting fallback model ${fallbackModel}...`);
+        response = await callQueryModel(fallbackModel);
+      } else {
+        throw primaryError;
+      }
+    }
 
     const answer = response.text || "No response generated.";
     
@@ -185,7 +234,7 @@ Answer:`;
     console.error(`[RAG] Error querying policy for ${serviceName}:`, error);
     return {
       success: false,
-      answer: `An error occurred while scanning the policy to answer your question: ${error.message || 'Unknown error'}`
+      answer: error.userFriendlyMessage || `An error occurred while scanning the policy to answer your question: ${error.message || 'Unknown error'}`
     };
   }
 };

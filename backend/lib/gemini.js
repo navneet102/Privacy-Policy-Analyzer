@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import dotenv from "dotenv";
+import { withRetry, parseErrorDetails } from "./retry.js";
 
 dotenv.config();
 
@@ -145,7 +146,8 @@ const calculateScoreAndFormat = (rubricData) => {
 };
 
 export const analyzePolicyWithGemini = async (serviceName, policyText) => {
-  const model = "gemini-3.6-flash";
+  const primaryModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
+  const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash";
 
   const systemInstruction = `You are a HIGHLY CRITICAL AI legal assistant specializing in analyzing privacy policies. Your goal is to actively find hidden caveats, broad data collection rights, vague language, and anti-privacy practices. Evaluate the provided policy against the required rubric, defaulting to "Bad" or "Neutral" unless they explicitly protect the user. For each category, you MUST provide a status (Good, Neutral, or Bad) and an exact quote. You MUST also provide at least 2 additional worrying clauses and at least 1 additional positive aspect. Respond strictly in JSON matching the schema.`;
 
@@ -159,29 +161,64 @@ export const analyzePolicyWithGemini = async (serviceName, policyText) => {
   ${policyText}
   ---`;
 
-  try {
-    const response = await ai.models.generateContent({
-      model: model,
-      contents: userPrompt,
-      config: {
-        systemInstruction: systemInstruction,
-        responseMimeType: "application/json",
-        responseSchema: rubricSchema,
-        temperature: 0.1, // Low temperature for more deterministic/grounded answers
+  const callModel = async (selectedModel) => {
+    return await withRetry(
+      async () => {
+        return await ai.models.generateContent({
+          model: selectedModel,
+          contents: userPrompt,
+          config: {
+            systemInstruction: systemInstruction,
+            responseMimeType: "application/json",
+            responseSchema: rubricSchema,
+            temperature: 0.1, // Low temperature for more deterministic/grounded answers
+          },
+        });
       },
-    });
+      {
+        operationName: `Policy Analysis (${selectedModel})`,
+        maxRetries: 4,
+        initialDelayMs: 1500,
+        backoffFactor: 2,
+        jitterMs: 1000,
+      }
+    );
+  };
 
-    const responseText = response.text;
-    if (!responseText) throw new Error("Received an empty response from the AI.");
-    
-    const rubricData = parseGeminiResponse(responseText);
-    return calculateScoreAndFormat(rubricData);
+  let response;
+  try {
+    response = await callModel(primaryModel);
+  } catch (primaryError) {
+    const errorDetails = parseErrorDetails(primaryError);
 
-  } catch (error) {
-    console.error("Error calling Gemini API:", error);
-    if (error.message && error.message.includes("API key not valid")) {
-      throw new Error("Invalid Gemini API Key. Please check your API_KEY environment variable.");
+    // If primary model failed due to transient capacity/overload (503/429) and a fallback model exists
+    if (errorDetails.isTransient && fallbackModel && fallbackModel !== primaryModel) {
+      console.warn(`[Gemini] Primary model ${primaryModel} failed after retries. Attempting fallback model ${fallbackModel}...`);
+      try {
+        response = await callModel(fallbackModel);
+      } catch (fallbackError) {
+        console.error(`[Gemini] Fallback model ${fallbackModel} also failed:`, fallbackError);
+        const finalError = new Error(
+          fallbackError.userFriendlyMessage ||
+          `Failed to communicate with AI service: ${fallbackError.message || 'Unknown error'}`
+        );
+        finalError.userFriendlyMessage = fallbackError.userFriendlyMessage;
+        throw finalError;
+      }
+    } else {
+      console.error("Error calling Gemini API:", primaryError);
+      const finalError = new Error(
+        primaryError.userFriendlyMessage ||
+        `Failed to communicate with AI service: ${primaryError.message || 'Unknown error'}`
+      );
+      finalError.userFriendlyMessage = primaryError.userFriendlyMessage;
+      throw finalError;
     }
-    throw new Error(`Failed to communicate with AI service: ${error.message || 'Unknown error'}`);
   }
+
+  const responseText = response.text;
+  if (!responseText) throw new Error("Received an empty response from the AI.");
+  
+  const rubricData = parseGeminiResponse(responseText);
+  return calculateScoreAndFormat(rubricData);
 };

@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "node backend/server.js",
     "start": "node backend/server.js",
-    "build": "npm install && npx playwright install chromium && npm install --prefix frontend && npm run build --prefix frontend"
+    "build": "npm install && npx playwright install chromium && npm install --prefix frontend && npm run build --prefix frontend",
+    "test": "node backend/tests/retry.test.js"
   },
   "keywords": [],
   "author": "",

@@ -4,7 +4,9 @@
 Shared library integration client for the Google Gemini AI API, providing structured JSON prompt execution, deterministic scoring, and evaluation against privacy policy criteria.
 
 ## Interface
-- `analyzePolicyWithGemini(serviceName: string, policyText: string)`: Asynchronous function that submits policy text to Google Gemini 3.6 Flash with a structured rubric schema, parses the resulting JSON, and computes a clamped 0–100 privacy score and category breakdown.
+- `analyzePolicyWithGemini(serviceName: string, policyText: string)`: Asynchronous function that submits policy text to Google Gemini (with exponential backoff retry and model fallback) using a structured rubric schema, parses the resulting JSON, and computes a clamped 0–100 privacy score and category breakdown.
+- `withRetry(fn: Function, options: Object)`: Utility in `retry.js` executing asynchronous Gemini operations with exponential backoff, randomized jitter, and transient error detection (handling HTTP 429 and 503).
+- `parseErrorDetails(error: Error)`: Utility in `retry.js` extracting status codes, RPC statuses, Google `RetryInfo` headers, and user-friendly error translations.
 
 ## Invariants
 - `process.env.GEMINI_API_KEY` must be defined when the module is imported; throws a runtime error synchronously on module load if missing.

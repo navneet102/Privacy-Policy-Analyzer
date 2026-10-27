@@ -109,7 +109,7 @@ export const analyze = async (req, res) => {
     } catch (error) {
         console.error('Analysis error:', error);
         res.status(500).json({
-            message: error.message || 'Failed to analyze policy'
+            message: error.userFriendlyMessage || error.message || 'Failed to analyze policy'
         });
     }
 }
