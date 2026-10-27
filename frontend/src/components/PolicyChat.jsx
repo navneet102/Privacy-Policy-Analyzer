@@ -4,10 +4,11 @@ import { LoadingSpinner } from './LoadingSpinner.jsx';
 
 export const PolicyChat = ({ serviceName }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const displayName = serviceName?.trim();
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
-      content: `Hi there! I am your privacy assistant for ${serviceName}. Ask me anything about their privacy policy!`
+      content: `Hi there! I am your privacy assistant${displayName ? ` for ${displayName}` : ''}. Ask me anything about this privacy policy!`
     }
   ]);
   const [input, setInput] = useState('');

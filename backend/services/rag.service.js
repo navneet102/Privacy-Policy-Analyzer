@@ -67,8 +67,8 @@ export const cosineSimilarity = (vecA, vecB) => {
  */
 export const storeEmbeddings = async (serviceName, policyText) => {
   try {
-    const cleanServiceName = serviceName.trim().toLowerCase();
-    console.log(`[RAG] Preparing embeddings for service: ${serviceName}`);
+    const cleanServiceName = (serviceName?.trim() || 'general policy').toLowerCase();
+    console.log(`[RAG] Preparing embeddings for service: ${serviceName || 'General Policy'}`);
     
     // 1. Chunk policy
     const chunks = chunkText(policyText, 1000, 200);
@@ -108,17 +108,17 @@ export const storeEmbeddings = async (serviceName, policyText) => {
  */
 export const queryPolicy = async (serviceName, question) => {
   try {
-    const cleanServiceName = serviceName.trim().toLowerCase();
+    const cleanServiceName = (serviceName?.trim() || 'general policy').toLowerCase();
     const cachedData = vectorStore.get(cleanServiceName);
 
     if (!cachedData || cachedData.length === 0) {
       return {
-        answer: `Embeddings not found for "${serviceName}". Please re-analyze the policy text first so we can initialize the RAG vector search.`,
+        answer: `Embeddings not found for this policy. Please re-analyze the policy text first so we can initialize the RAG vector search.`,
         success: false
       };
     }
 
-    console.log(`[RAG] Querying policy for: ${serviceName} | Question: "${question}"`);
+    console.log(`[RAG] Querying policy for: ${serviceName || 'General Policy'} | Question: "${question}"`);
 
     // 1. Embed user query
     const embedResponse = await ai.models.embedContent({
@@ -149,11 +149,14 @@ export const queryPolicy = async (serviceName, question) => {
       .map((c, i) => `--- Excerpt ${i + 1} ---\n${c.text}`)
       .join("\n\n");
 
-    const systemInstruction = `You are a helpful, clear, and direct privacy policy assistant. Your goal is to answer the user's questions about the privacy policy of "${serviceName}" based ONLY on the excerpts provided. 
+    const hasSpecificService = serviceName && serviceName.trim() && serviceName.trim().toLowerCase() !== 'general policy';
+    const targetName = hasSpecificService ? `"${serviceName.trim()}"` : "this service";
+
+    const systemInstruction = `You are a helpful, clear, and direct privacy policy assistant. Your goal is to answer the user's questions about the privacy policy of ${targetName} based ONLY on the excerpts provided. 
 If the excerpts do not contain the answer, say exactly: "I cannot find the answer to this in the privacy policy." and do not make up any information.
 Keep your answers objective and simple.`;
 
-    const userPrompt = `Below are relevant excerpts from the privacy policy of "${serviceName}":
+    const userPrompt = `Below are relevant excerpts from the privacy policy of ${targetName}:
 
 ${excerptsText}
 

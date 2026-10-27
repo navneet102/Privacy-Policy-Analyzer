@@ -7,7 +7,7 @@ export const analyzePolicyWithAPI = async (serviceName, policyText) => {
   try {
     // const response = await axiosInstance.post(`${API_BASE_URL}/api/analyze`, {
     const response = await axiosInstance.post(`/api/analyze`, {
-      serviceName,
+      serviceName: serviceName?.trim() || '',
       policyText
     });
     
@@ -41,7 +41,7 @@ export const extractPolicyFromService = async (serviceName) => {
 export const chatWithPolicyWithAPI = async (serviceName, question) => {
   try {
     const response = await axiosInstance.post(`/api/chat-policy`, {
-      serviceName,
+      serviceName: serviceName?.trim() || '',
       question
     });
     return response.data;

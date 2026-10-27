@@ -88,17 +88,19 @@ export const analyze = async (req, res) => {
     try {
         const { serviceName, policyText } = req.body;
 
-        if (!serviceName || !policyText) {
+        if (!policyText || !policyText.trim()) {
             return res.status(400).json({
-                message: 'Service name and policy text are required'
+                message: 'Policy text is required'
             });
         }
 
-        const result = await analyzePolicyWithGemini(serviceName, policyText);
+        const effectiveServiceName = (serviceName && serviceName.trim()) ? serviceName.trim() : 'General Policy';
+
+        const result = await analyzePolicyWithGemini(effectiveServiceName, policyText);
 
         // Pre-compute and store embeddings for RAG chat in the background
         try {
-            await storeEmbeddings(serviceName, policyText);
+            await storeEmbeddings(effectiveServiceName, policyText);
         } catch (embedError) {
             console.error("Failed to generate and store embeddings for RAG:", embedError);
         }
@@ -116,14 +118,16 @@ export const chatWithPolicy = async (req, res) => {
     try {
         const { serviceName, question } = req.body;
 
-        if (!serviceName || !question) {
+        if (!question || !question.trim()) {
             return res.status(400).json({
-                message: 'Service name and question are required',
+                message: 'Question is required',
                 success: false
             });
         }
 
-        const result = await queryPolicy(serviceName, question);
+        const effectiveServiceName = (serviceName && serviceName.trim()) ? serviceName.trim() : 'General Policy';
+
+        const result = await queryPolicy(effectiveServiceName, question);
         
         res.json(result);
     } catch (error) {

@@ -24,11 +24,12 @@ const AnalyzerPage = () => {
   const [error, setError] = useState(null);
   const [showPolicyField, setShowPolicyField] = useState(false);
   const [extractionAttempted, setExtractionAttempted] = useState(false);
+  const [isAutoExtracted, setIsAutoExtracted] = useState(false);
   const [blockedInfo, setBlockedInfo] = useState(null); // New state for blocked website info
 
   const handleExtractPolicy = useCallback(async () => {
     if (!serviceName.trim()) {
-      setError('Please enter a service name first.');
+      setError('Please enter a service name first to find its policy automatically.');
       return;
     }
     
@@ -36,12 +37,14 @@ const AnalyzerPage = () => {
     setBlockedInfo(null);
     setIsExtracting(true);
     setExtractionAttempted(true);
+    setIsAutoExtracted(false);
     
     try {
       const result = await extractPolicyFromService(serviceName);
       if (result.success && result.policyText) {
         setPolicyText(result.policyText);
         setShowPolicyField(true);
+        setIsAutoExtracted(true);
         setError(null);
         setBlockedInfo(null);
       } else if (result.blocked && result.privacyPolicyUrl) {
@@ -66,8 +69,8 @@ const AnalyzerPage = () => {
   }, [serviceName]);
 
   const handleAnalyzeClick = useCallback(async () => {
-    if (!serviceName.trim() || !policyText.trim()) {
-      setError('Please enter both the service name and the policy text.');
+    if (!policyText.trim()) {
+      setError('Please enter or paste the privacy policy text to analyze.');
       return;
     }
     setError(null);
@@ -90,6 +93,7 @@ const AnalyzerPage = () => {
   const handleManualEntry = () => {
     setShowPolicyField(true);
     setExtractionAttempted(true);
+    setIsAutoExtracted(false);
     setBlockedInfo(null);
   };
 
@@ -110,7 +114,7 @@ const AnalyzerPage = () => {
                 id="serviceName"
                 value={serviceName}
                 onChange={(e) => setServiceName(e.target.value)}
-                placeholder="Facebook, Microsoft, Google"
+                placeholder="e.g. Facebook, Microsoft, Google"
                 disabled={isLoading || isExtracting}
               />
               
@@ -155,8 +159,11 @@ const AnalyzerPage = () => {
                     label="Privacy Policy or Terms of Service Text"
                     id="policyText"
                     value={policyText}
-                    onChange={(e) => setPolicyText(e.target.value)}
-                    placeholder={policyText ? "Policy text extracted successfully! You can edit it if needed." : "Paste the full text of the policy here..."}
+                    onChange={(e) => {
+                      setPolicyText(e.target.value);
+                      if (isAutoExtracted) setIsAutoExtracted(false);
+                    }}
+                    placeholder={isAutoExtracted ? "Policy text extracted successfully! You can edit it if needed." : "Paste the full text of the policy here..."}
                     rows={12}
                     disabled={isLoading}
                   />
@@ -183,13 +190,32 @@ const AnalyzerPage = () => {
 
               {/* Analyze button - only show when policy text field is visible */}
               {showPolicyField && (
-                <Button
-                  onClick={handleAnalyzeClick}
-                  disabled={isLoading || !serviceName.trim() || !policyText.trim()}
-                  className="w-full transition-all duration-300 ease-in-out hover:shadow-lg focus:ring-4 focus:ring-sky-500/50"
-                >
-                  {isLoading ? <LoadingSpinner size="sm" /> : 'Analyze Policy'}
-                </Button>
+                <>
+                  <Button
+                    onClick={handleAnalyzeClick}
+                    disabled={isLoading || !policyText.trim()}
+                    className="w-full transition-all duration-300 ease-in-out hover:shadow-lg focus:ring-4 focus:ring-sky-500/50"
+                  >
+                    {isLoading ? <LoadingSpinner size="sm" /> : 'Analyze Policy'}
+                  </Button>
+
+                  {!isLoading && (
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowPolicyField(false);
+                          setPolicyText('');
+                          setIsAutoExtracted(false);
+                          setError(null);
+                        }}
+                        className="text-xs text-slate-400 hover:text-sky-400 transition-colors cursor-pointer"
+                      >
+                        ← Back to extraction options
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </section>
@@ -267,7 +293,7 @@ const AnalyzerPage = () => {
             )}
             
             {/* Success - policy extracted */}
-            {showPolicyField && policyText && !error && !isLoading && !isExtracting && !analysisResult && !blockedInfo && (
+            {isAutoExtracted && policyText && !error && !isLoading && !isExtracting && !analysisResult && !blockedInfo && (
               <div className="bg-emerald-900/20 border border-emerald-700 p-6 rounded-lg">
                 <div className="flex items-center mb-3">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-emerald-400 mr-2">
@@ -296,15 +322,21 @@ const AnalyzerPage = () => {
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-12 h-12 text-slate-400 mx-auto mb-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
                   </svg>
-                  <p className="text-slate-400">Enter a service name and choose how to get the privacy policy.</p>
+                  <p className="text-slate-400">Enter a service name to fetch the policy automatically, or choose to enter policy text manually.</p>
                 </div>
               </div>
             )}
             
-            {/* Waiting for manual input */}
-            {!analysisResult && !isLoading && !isExtracting && !error && showPolicyField && !policyText && !blockedInfo && (
+            {/* Waiting for manual input or ready to analyze */}
+            {!analysisResult && !isLoading && !isExtracting && !error && showPolicyField && !isAutoExtracted && !blockedInfo && (
               <div className="flex items-center justify-center h-full bg-slate-700/50 p-6 rounded-lg text-center">
-                <p className="text-slate-400">Enter the privacy policy text and click "Analyze Policy" to see the results here.</p>
+                {policyText.trim() ? (
+                  <div>
+                    <p className="text-slate-400 text-sm">Click "Analyze Policy" to run the AI analysis.</p>
+                  </div>
+                ) : (
+                  <p className="text-slate-400">Enter or paste the privacy policy text and click "Analyze Policy" to see the results here.</p>
+                )}
               </div>
             )}
           </section>
