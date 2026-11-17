@@ -185,8 +185,8 @@ User's Question: "${question}"
 Answer:`;
 
     // 4. Generate grounded answer with retry and fallback
-    const primaryModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
-    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash";
+    const primaryModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+    const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash";
 
     const callQueryModel = async (selectedModel) => {
       return await withRetry(

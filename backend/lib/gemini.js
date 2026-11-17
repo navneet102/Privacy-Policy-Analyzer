@@ -146,8 +146,8 @@ const calculateScoreAndFormat = (rubricData) => {
 };
 
 export const analyzePolicyWithGemini = async (serviceName, policyText) => {
-  const primaryModel = process.env.GEMINI_MODEL || "gemini-3.6-flash";
-  const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash";
+  const primaryModel = process.env.GEMINI_MODEL || "gemini-3.8-flash";
+  const fallbackModel = process.env.GEMINI_FALLBACK_MODEL || "gemini-3.6-flash";
 
   const systemInstruction = `You are a HIGHLY CRITICAL AI legal assistant specializing in analyzing privacy policies. Your goal is to actively find hidden caveats, broad data collection rights, vague language, and anti-privacy practices. Evaluate the provided policy against the required rubric, defaulting to "Bad" or "Neutral" unless they explicitly protect the user. For each category, you MUST provide a status (Good, Neutral, or Bad) and an exact quote. You MUST also provide at least 2 additional worrying clauses and at least 1 additional positive aspect. Respond strictly in JSON matching the schema.`;
 
