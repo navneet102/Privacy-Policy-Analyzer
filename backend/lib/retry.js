@@ -138,8 +138,8 @@ export const parseErrorDetails = (error) => {
  */
 export const withRetry = async (fn, options = {}) => {
   const {
-    maxRetries = 4,
-    initialDelayMs = 1500,
+    maxRetries = 2,
+    initialDelayMs = 10000,
     backoffFactor = 2,
     maxDelayMs = 30000,
     jitterMs = 1000,

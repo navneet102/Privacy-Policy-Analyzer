@@ -202,8 +202,8 @@ Answer:`;
         },
         {
           operationName: `RAG Grounded Response (${selectedModel})`,
-          maxRetries: 3,
-          initialDelayMs: 1500,
+          maxRetries: 2,
+          initialDelayMs: 10000,
           backoffFactor: 2,
         }
       );

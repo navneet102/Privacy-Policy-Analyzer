@@ -177,8 +177,8 @@ export const analyzePolicyWithGemini = async (serviceName, policyText) => {
       },
       {
         operationName: `Policy Analysis (${selectedModel})`,
-        maxRetries: 4,
-        initialDelayMs: 1500,
+        maxRetries: 2,
+        initialDelayMs: 10000,
         backoffFactor: 2,
         jitterMs: 1000,
       }
